@@ -1,0 +1,20 @@
+# Ignorar directorios de construcción
+cmake-build-debug/
+cmake-build-debug-wsl/
+cmake-build-release/
+
+# Ignorar archivos de configuración de CLion
+.idea/
+*.iml
+
+# Ignorar archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Ignorar archivos de log y temporales
+*.log
+*.tmp
+*.swp
+
+# Ignorar CMakeLists.txt
+CMakeLists.txt
