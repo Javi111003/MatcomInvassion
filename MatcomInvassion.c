@@ -27,37 +27,21 @@ int width = 99;
 int height = 30;
 int score = 0;
 pthread_mutex_t lock;
-pthread_t shotThread;
+pthread_t shotThread , moveAndShootThread ,shipThread;
 
 void cleanup() {
     // Finalizar ncurses
     endwin();
-
+    //Reiniciar puntuuacion
+    score=0;
     // Destruir mutex
     pthread_mutex_destroy(&lock);
-
     // Limpiar la consola
     system("clear");
-
     // Cancelar hilos si es necesario
     pthread_cancel(shotThread);
+    pthread_cancel(moveAndShootThread);
 }
-
-void drawFrame() {
-    for (int x = 0; x < width; x++) {
-        mvprintw(0, x, "-");
-        mvprintw(height - 1, x, "-");
-    }
-    for (int y = 0; y < height; y++) {
-        mvprintw(y, 0, "|");
-        mvprintw(y, width - 1, "|");
-    }
-    mvprintw(0, 0, "+");
-    mvprintw(0, width - 1, "+");
-    mvprintw(height - 1, 0, "+");
-    mvprintw(height - 1, width - 1, "+");
-}
-
 void drawShip(const SpaceShip *ship, bool erase) {
     char shipDesign[][6] = {
         "  ^  ",
@@ -70,6 +54,7 @@ void drawShip(const SpaceShip *ship, bool erase) {
         "     ",
         "     "
     };
+    pthread_mutex_lock(&lock);
     for (int i = 0; i < ship->height; i++) {
         if (erase) {
             mvprintw(ship->y + i, ship->x, "%s", blankDesign[i]);
@@ -79,10 +64,13 @@ void drawShip(const SpaceShip *ship, bool erase) {
             attroff(COLOR_PAIR(1));
         }
     }
+    pthread_mutex_unlock(&lock);
 }
 
 void updateScore() {
+    pthread_mutex_lock(&lock);
     mvprintw(0, 2, "Score: %d", score);
+    pthread_mutex_unlock(&lock);
 }
 
 void *shoot(void *arg) {
@@ -136,14 +124,15 @@ void *moveAndShoot(void *arg) {
                     }
                 }
                 score++;
-                updateScore();
                 pthread_mutex_unlock(&lock);
+                updateScore();
                 break;
         }
         drawShip(&myShip, false);
         refresh();
         usleep(20000); // Reduce the delay to improve movement speed
     }
+    cleanup();
     return NULL;
 }
 
@@ -155,11 +144,11 @@ void StartGame() {
     nodelay(stdscr, TRUE);
     start_color(); // Inicializar colores
     init_pair(1, COLOR_YELLOW, COLOR_BLACK); // Definir par de colores
-
-    halfdelay(1); // Usar halfdelay para mejorar la respuesta del teclado
-
-    drawFrame();
+    curs_set(0);
+    raw();
+    box(stdscr, 0, 0);
     updateScore();
+    halfdelay(1); // Usar halfdelay para mejorar la respuesta del teclado
     refresh();
 
     pthread_mutex_init(&lock, NULL);
@@ -169,10 +158,7 @@ void StartGame() {
     }
 
     pthread_create(&shotThread, NULL, shoot, NULL);
-
-    pthread_t moveAndShootThread;
     pthread_create(&moveAndShootThread, NULL, moveAndShoot, NULL);
-
     pthread_join(moveAndShootThread, NULL);
 
     cleanup();
