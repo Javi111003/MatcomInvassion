@@ -23,11 +23,11 @@ typedef struct {
 
 SpaceShip myShip = {100, 10, 10, 5, 3};
 Shot shots[MAX_SHOTS];
-int width = 99;
+int width = 120;
 int height = 30;
 int score = 0;
 pthread_mutex_t lock;
-pthread_t shotThread , moveAndShootThread ,shipThread;
+pthread_t shotThread , inputThread ;
 
 void cleanup() {
     // Finalizar ncurses
@@ -40,7 +40,7 @@ void cleanup() {
     system("clear");
     // Cancelar hilos si es necesario
     pthread_cancel(shotThread);
-    pthread_cancel(moveAndShootThread);
+    pthread_cancel(inputThread);
 }
 void drawShip(const SpaceShip *ship, bool erase) {
     char shipDesign[][6] = {
@@ -64,12 +64,14 @@ void drawShip(const SpaceShip *ship, bool erase) {
             attroff(COLOR_PAIR(1));
         }
     }
+    refresh();
     pthread_mutex_unlock(&lock);
 }
 
 void updateScore() {
     pthread_mutex_lock(&lock);
     mvprintw(0, 2, "Score: %d", score);
+    refresh();
     pthread_mutex_unlock(&lock);
 }
 
@@ -82,8 +84,8 @@ void *shoot(void *arg) {
                 if (shotY > 0) {
                     mvprintw(shotY, shots[i].startX, "|");
                     refresh();
-                    usleep(10000); // Reduce the delay to increase shot speed
-                    mvprintw(shotY, shots[i].startX, " ");
+                    usleep(30000); // Reduce the delay to increase shot speed
+                    mvaddch(shotY, shots[i].startX, ' ');
                     shots[i].startY--;
                 } else {
                     shots[i].active = false;
@@ -114,7 +116,6 @@ void *moveAndShoot(void *arg) {
                 if (myShip.x < width - myShip.width - 1) myShip.x++;
                 break;
             case ' ':
-                pthread_mutex_lock(&lock);
                 for (int i = 0; i < MAX_SHOTS; i++) {
                     if (!shots[i].active) {
                         shots[i].startX = myShip.x + 2;
@@ -124,12 +125,10 @@ void *moveAndShoot(void *arg) {
                     }
                 }
                 score++;
-                pthread_mutex_unlock(&lock);
                 updateScore();
                 break;
         }
         drawShip(&myShip, false);
-        refresh();
         usleep(20000); // Reduce the delay to improve movement speed
     }
     cleanup();
@@ -158,8 +157,8 @@ void StartGame() {
     }
 
     pthread_create(&shotThread, NULL, shoot, NULL);
-    pthread_create(&moveAndShootThread, NULL, moveAndShoot, NULL);
-    pthread_join(moveAndShootThread, NULL);
+    pthread_create(&inputThread, NULL, moveAndShoot, NULL);
+    pthread_join(inputThread, NULL);
 
     cleanup();
 }
