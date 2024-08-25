@@ -5,6 +5,10 @@
 #include <pthread.h>
 #include <stdbool.h>
 
+#define MAX_SHOTS 100
+#define MAX_ENEMIES 50
+#define MAX_WAVES 20
+
 typedef struct {
     int health;
     int x;
@@ -12,35 +16,72 @@ typedef struct {
     int width;
     int height;
 } SpaceShip;
-
 typedef struct {
     int startX;
     int startY;
     bool active;
 } Shot;
+typedef struct {
+    int x;
+    int y;
+    bool active;
+} Enemy;
+typedef struct {
+    Enemy enemies[MAX_ENEMIES];
+    int numEnemies;
+} Wave;
+// Define the new structures
+typedef struct WaveNode {
+    Wave wave;
+    struct WaveNode *next;
+} WaveNode;
+typedef struct {
+    WaveNode *head;
+    WaveNode *tail;
+} WaveList;
 
-#define MAX_SHOTS 100
-
+//Variables globales
+WaveList wavesList;
 SpaceShip myShip = {100, 10, 10, 5, 3};
 Shot shots[MAX_SHOTS];
+Enemy enemies[MAX_ENEMIES];
 int width = 120;
 int height = 30;
 int score = 0;
+int waveNumber = 1;
 pthread_mutex_t lock;
-pthread_t shotThread , inputThread ;
+pthread_t shootThread, inputThread , enemyThread ,waveTrhead;
+
+//Firmas de metodos
+void initializeWaves();
+void initializeShots();
 
 void cleanup() {
-    // Finalizar ncurses
-    endwin();
+    //Eliminar enemigos y disparos de la pantalla
+    initializeShots();
+    //Reiniciar oleada
+    waveNumber=1;
     //Reiniciar puntuuacion
     score=0;
+    // Finalizar ncurses
+    endwin();
     // Destruir mutex
     pthread_mutex_destroy(&lock);
     // Limpiar la consola
     system("clear");
     // Cancelar hilos si es necesario
-    pthread_cancel(shotThread);
+    pthread_cancel(shootThread);
     pthread_cancel(inputThread);
+    pthread_cancel(enemyThread);
+    pthread_cancel(waveTrhead);
+    // Liberar la lista enlazada
+    WaveNode *current = wavesList.head;
+    while (current != NULL) {
+        WaveNode *temp = current;
+        current = current->next;
+        free(temp);
+    }
+    initializeWaves();
 }
 void drawShip(const SpaceShip *ship, bool erase) {
     char shipDesign[][6] = {
@@ -67,14 +108,77 @@ void drawShip(const SpaceShip *ship, bool erase) {
     refresh();
     pthread_mutex_unlock(&lock);
 }
-
-void updateScore() {
+void updateUI() {
     pthread_mutex_lock(&lock);
     mvprintw(0, 2, "Score: %d", score);
+    mvprintw(0, 20, "Wave: %d", waveNumber);
+    mvprintw(0, 40, "Health: %d", myShip.health);
     refresh();
     pthread_mutex_unlock(&lock);
 }
-
+void initializeShots() {
+    for (int i = 0; i < MAX_SHOTS; i++) {
+        shots[i].active = false;
+    }
+}
+// Initialize the linked list
+void initializeWaves() {
+    wavesList.head = NULL;
+    wavesList.tail = NULL;
+}
+void *generateWave(void* arg) {
+    while(1){
+        pthread_mutex_lock(&lock);
+        WaveNode *newNode = (WaveNode *)malloc(sizeof(WaveNode));
+        if (newNode != NULL) {
+            int enemiesInWave = (waveNumber * rand()) % 10;
+            newNode->wave.numEnemies = enemiesInWave;
+            for (int i = 0; i < enemiesInWave; i++) {
+            //Mejorar la generacion de la coordenada x de los enemigos para que no se generen en la misma posicion
+                int x = rand() % width;
+                newNode->wave.enemies[i].x = x==0?1:x;
+                newNode->wave.enemies[i].y = 1;
+                newNode->wave.enemies[i].active = true;
+            }
+            newNode->next = NULL;
+            if (wavesList.tail != NULL) {
+                wavesList.tail->next = newNode;
+            } else {
+                wavesList.head = newNode;
+            }
+            wavesList.tail = newNode;
+            waveNumber++;
+        }
+        pthread_mutex_unlock(&lock);
+        usleep(1000000); // Reduce the delay to make waves appear more frequently
+    }
+    return NULL;
+}
+void *moveWave(void* arg) {
+    while(1){
+        pthread_mutex_lock(&lock);
+        WaveNode *current = wavesList.head;
+        while (current != NULL) {
+            Wave *currentWave = &current->wave;
+            for (int j = 0; j < currentWave->numEnemies; j++) {
+                if (currentWave->enemies[j].active) {
+                    mvprintw(currentWave->enemies[j].y, currentWave->enemies[j].x, " ");
+                    currentWave->enemies[j].y++;
+                    if (currentWave->enemies[j].y >= height) {
+                        currentWave->enemies[j].active = false;
+                    } else {
+                        mvprintw(currentWave->enemies[j].y, currentWave->enemies[j].x, "E");
+                    }
+                }
+            }
+            current = current->next;
+        }
+        refresh();
+        pthread_mutex_unlock(&lock);
+        usleep(350000);
+    }
+    return NULL;
+}
 void *shoot(void *arg) {
     while (1) {
         pthread_mutex_lock(&lock);
@@ -102,6 +206,7 @@ void *moveAndShoot(void *arg) {
     int ch;
     while ((ch = getch()) != 'q') {
         drawShip(&myShip, true);
+        updateUI();
         switch (ch) {
             case 'w':
                 if (myShip.y > 1) myShip.y--;
@@ -125,7 +230,6 @@ void *moveAndShoot(void *arg) {
                     }
                 }
                 score++;
-                updateScore();
                 break;
         }
         drawShip(&myShip, false);
@@ -146,18 +250,20 @@ void StartGame() {
     curs_set(0);
     raw();
     box(stdscr, 0, 0);
-    updateScore();
     halfdelay(1); // Usar halfdelay para mejorar la respuesta del teclado
+    updateUI();
+    srand(time(NULL));
     refresh();
 
     pthread_mutex_init(&lock, NULL);
 
-    for (int i = 0; i < MAX_SHOTS; i++) {
-        shots[i].active = false;
-    }
+    initializeWaves();
+    initializeShots();
 
-    pthread_create(&shotThread, NULL, shoot, NULL);
+    pthread_create(&shootThread, NULL, shoot, NULL);
     pthread_create(&inputThread, NULL, moveAndShoot, NULL);
+    pthread_create(&enemyThread, NULL, moveWave, NULL);
+    pthread_create(&waveTrhead, NULL, generateWave, NULL);
     pthread_join(inputThread, NULL);
 
     cleanup();
