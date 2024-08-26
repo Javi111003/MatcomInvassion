@@ -8,6 +8,7 @@
 #define MAX_SHOTS 100
 #define MAX_ENEMIES 50
 #define MAX_WAVES 20
+#define ALIEN_WIDTH 6
 
 typedef struct {
     int health;
@@ -21,15 +22,20 @@ typedef struct {
     int startY;
     bool active;
 } Shot;
+
 typedef struct {
-    int x;
-    int y;
+    int type;
+    int x, y;
+    int width, height;
+    char** sprite;
     bool active;
 } Enemy;
+
 typedef struct {
     Enemy enemies[MAX_ENEMIES];
     int numEnemies;
 } Wave;
+
 // Define the new structures
 typedef struct WaveNode {
     Wave wave;
@@ -39,6 +45,33 @@ typedef struct {
     WaveNode *head;
     WaveNode *tail;
 } WaveList;
+
+// Tipo 1
+char* alien1_sprite[] = {
+    " /\\ ",
+    "/  \\",
+    "\\  /",
+    " \\/ "
+};
+const int alien1_width = 4, alien1_height = 4;
+
+// Tipo 2
+char* alien2_sprite[] = {
+    " /\\ ",
+    "/||\\",
+    "\\  /",
+    " \\/ "
+};
+const int alien2_width = 4, alien2_height = 4;
+
+// Tipo 3
+char* alien3_sprite[] = {
+    " /\\/\\ ",
+    "/|  |\\",
+    "\\|  |/",
+    " \\/\\/ "
+};
+const int alien3_width = 6, alien3_height = 4;
 
 //Variables globales
 WaveList wavesList;
@@ -108,6 +141,58 @@ void drawShip(const SpaceShip *ship, bool erase) {
     refresh();
     pthread_mutex_unlock(&lock);
 }
+
+void draw_alien(Enemy* enemy) {
+    attron(COLOR_PAIR(2));
+    for (int i = 0; i < enemy->height; i++)
+        mvprintw(enemy->y + i, enemy->x, "%s", enemy->sprite[i]);
+
+    attroff(COLOR_PAIR(2));
+    refresh();
+}
+
+void erase_alien(Enemy* enemy) {
+    int i, j;
+    for (i = 0; i < enemy->height; i++) {
+        for (j = 0; j < enemy->width; j++) {
+            mvaddch(enemy->y + i, enemy->x + j, ' ');
+        }
+    }
+    refresh();
+}
+
+void handle_alien(Enemy* enemy) {
+    switch (enemy->type) {
+        case 1:
+            draw_alien(enemy);
+            break;
+        case 2:
+            draw_alien(enemy);
+            break;
+        case 3:
+            draw_alien(enemy);
+            break;
+        default:
+            break;
+    }
+}
+
+void erase_alien_type(Enemy* enemy) {
+    switch (enemy->type) {
+        case 1:
+            erase_alien(enemy);
+            break;
+        case 2:
+            erase_alien(enemy);
+            break;
+        case 3:
+            erase_alien(enemy);
+            break;
+        default:
+            break;
+    }
+}
+
 void updateUI() {
     pthread_mutex_lock(&lock);
     mvprintw(0, 2, "Score: %d", score);
@@ -132,13 +217,37 @@ void *generateWave(void* arg) {
         WaveNode *newNode = (WaveNode *)malloc(sizeof(WaveNode));
         if (newNode != NULL) {
             int enemiesInWave = (waveNumber * rand()) % 10;
+            int x = rand() % width;
             newNode->wave.numEnemies = enemiesInWave;
             for (int i = 0; i < enemiesInWave; i++) {
-            //Mejorar la generacion de la coordenada x de los enemigos para que no se generen en la misma posicion
-                int x = rand() % width;
-                newNode->wave.enemies[i].x = x==0?1:x;
+                // Mejorar la generacion de la coordenada x de los enemigos para que no se generen en la misma posicion
+                newNode->wave.enemies[i].x = x == 0 ? 1 : x;
                 newNode->wave.enemies[i].y = 1;
                 newNode->wave.enemies[i].active = true;
+                newNode->wave.enemies[i].type = i % 3 + 1;
+                switch (newNode->wave.enemies[i].type) {
+                case 1:
+                    newNode->wave.enemies[i].width = alien1_width;
+                    newNode->wave.enemies[i].height = alien1_height;
+                    newNode->wave.enemies[i].sprite = alien1_sprite;
+                    break;
+                case 2:
+                    newNode->wave.enemies[i].width = alien2_width;
+                    newNode->wave.enemies[i].height = alien2_height;
+                    newNode->wave.enemies[i].sprite = alien2_sprite;
+                    break;
+                case 3:
+                    newNode->wave.enemies[i].width = alien3_width;
+                    newNode->wave.enemies[i].height = alien3_height;
+                    newNode->wave.enemies[i].sprite = alien3_sprite;
+                    break;
+                }
+
+                int extraSpace = rand() % 4 + 2;
+                x += ALIEN_WIDTH + extraSpace; // Añadir un espacio aleatorio entre alienígenas
+                if (x + ALIEN_WIDTH > width) {
+                    x = 0;
+                }
             }
             newNode->next = NULL;
             if (wavesList.tail != NULL) {
@@ -150,7 +259,7 @@ void *generateWave(void* arg) {
             waveNumber++;
         }
         pthread_mutex_unlock(&lock);
-        usleep(1000000); // Reduce the delay to make waves appear more frequently
+        usleep(1500000); // Reduce the delay to make waves appear more frequently
     }
     return NULL;
 }
@@ -162,12 +271,12 @@ void *moveWave(void* arg) {
             Wave *currentWave = &current->wave;
             for (int j = 0; j < currentWave->numEnemies; j++) {
                 if (currentWave->enemies[j].active) {
-                    mvprintw(currentWave->enemies[j].y, currentWave->enemies[j].x, " ");
+                    erase_alien_type(&currentWave->enemies[j]);
                     currentWave->enemies[j].y++;
                     if (currentWave->enemies[j].y >= height) {
                         currentWave->enemies[j].active = false;
                     } else {
-                        mvprintw(currentWave->enemies[j].y, currentWave->enemies[j].x, "E");
+                        handle_alien(&currentWave->enemies[j]);
                     }
                 }
             }
@@ -247,6 +356,7 @@ void StartGame() {
     nodelay(stdscr, TRUE);
     start_color(); // Inicializar colores
     init_pair(1, COLOR_YELLOW, COLOR_BLACK); // Definir par de colores
+    init_pair(2, COLOR_RED, COLOR_BLACK);
     curs_set(0);
     raw();
     box(stdscr, 0, 0);
