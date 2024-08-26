@@ -142,7 +142,7 @@ void drawShip(const SpaceShip *ship, bool erase) {
     pthread_mutex_unlock(&lock);
 }
 
-void draw_alien(Enemy* enemy) {
+void drawAlien(Enemy* enemy) {
     attron(COLOR_PAIR(2));
     for (int i = 0; i < enemy->height; i++)
         mvprintw(enemy->y + i, enemy->x, "%s", enemy->sprite[i]);
@@ -151,7 +151,7 @@ void draw_alien(Enemy* enemy) {
     refresh();
 }
 
-void erase_alien(Enemy* enemy) {
+void eraseAlien(Enemy* enemy) {
     int i, j;
     for (i = 0; i < enemy->height; i++) {
         for (j = 0; j < enemy->width; j++) {
@@ -159,38 +159,6 @@ void erase_alien(Enemy* enemy) {
         }
     }
     refresh();
-}
-
-void handle_alien(Enemy* enemy) {
-    switch (enemy->type) {
-        case 1:
-            draw_alien(enemy);
-            break;
-        case 2:
-            draw_alien(enemy);
-            break;
-        case 3:
-            draw_alien(enemy);
-            break;
-        default:
-            break;
-    }
-}
-
-void erase_alien_type(Enemy* enemy) {
-    switch (enemy->type) {
-        case 1:
-            erase_alien(enemy);
-            break;
-        case 2:
-            erase_alien(enemy);
-            break;
-        case 3:
-            erase_alien(enemy);
-            break;
-        default:
-            break;
-    }
 }
 
 void updateUI() {
@@ -221,33 +189,36 @@ void *generateWave(void* arg) {
             newNode->wave.numEnemies = enemiesInWave;
             for (int i = 0; i < enemiesInWave; i++) {
                 // Mejorar la generacion de la coordenada x de los enemigos para que no se generen en la misma posicion
-                newNode->wave.enemies[i].x = x == 0 ? 1 : x;
-                newNode->wave.enemies[i].y = 1;
                 newNode->wave.enemies[i].active = true;
                 newNode->wave.enemies[i].type = i % 3 + 1;
                 switch (newNode->wave.enemies[i].type) {
-                case 1:
-                    newNode->wave.enemies[i].width = alien1_width;
+                    case 1:
+                        newNode->wave.enemies[i].width = alien1_width;
                     newNode->wave.enemies[i].height = alien1_height;
                     newNode->wave.enemies[i].sprite = alien1_sprite;
                     break;
-                case 2:
-                    newNode->wave.enemies[i].width = alien2_width;
+                    case 2:
+                        newNode->wave.enemies[i].width = alien2_width;
                     newNode->wave.enemies[i].height = alien2_height;
                     newNode->wave.enemies[i].sprite = alien2_sprite;
                     break;
-                case 3:
-                    newNode->wave.enemies[i].width = alien3_width;
+                    case 3:
+                        newNode->wave.enemies[i].width = alien3_width;
                     newNode->wave.enemies[i].height = alien3_height;
                     newNode->wave.enemies[i].sprite = alien3_sprite;
                     break;
                 }
-
-                int extraSpace = rand() % 4 + 2;
-                x += ALIEN_WIDTH + extraSpace; // Añadir un espacio aleatorio entre alienígenas
-                if (x + ALIEN_WIDTH > width) {
-                    x = 0;
+                if (i == 0) {
+                    newNode->wave.enemies[i].x = x-newNode->wave.enemies[i].width<=0?1+newNode->wave.enemies[i].width:x;
                 }
+                else {
+                    int lastWidth = newNode->wave.enemies[i-1].width;
+                    newNode->wave.enemies[i].x = newNode->wave.enemies[i-1].x + lastWidth + (newNode->wave.enemies[i].width/2);
+                    if (newNode->wave.enemies[i].x + newNode->wave.enemies[i].width > width-4) {//-4 por el espacio del marco
+                        newNode->wave.enemies[i].x = 2 + newNode->wave.enemies[i].width;//al igual que aquí el +2
+                    }
+                }
+                newNode->wave.enemies[i].y = 1;
             }
             newNode->next = NULL;
             if (wavesList.tail != NULL) {
@@ -271,12 +242,12 @@ void *moveWave(void* arg) {
             Wave *currentWave = &current->wave;
             for (int j = 0; j < currentWave->numEnemies; j++) {
                 if (currentWave->enemies[j].active) {
-                    erase_alien_type(&currentWave->enemies[j]);
+                    eraseAlien(&currentWave->enemies[j]);
                     currentWave->enemies[j].y++;
                     if (currentWave->enemies[j].y >= height) {
                         currentWave->enemies[j].active = false;
                     } else {
-                        handle_alien(&currentWave->enemies[j]);
+                        drawAlien(&currentWave->enemies[j]);
                     }
                 }
             }
