@@ -209,12 +209,12 @@ void *generateWave(void* arg) {
                     break;
                 }
                 if (i == 0) {
-                    newNode->wave.enemies[i].x = x-newNode->wave.enemies[i].width<=0?1+newNode->wave.enemies[i].width:x;
+                    newNode->wave.enemies[i].x = x-newNode->wave.enemies[i].width<=0||x+newNode->wave.enemies[i].width>=width-4?1+newNode->wave.enemies[i].width:x;
                 }
                 else {
                     int lastWidth = newNode->wave.enemies[i-1].width;
                     newNode->wave.enemies[i].x = newNode->wave.enemies[i-1].x + lastWidth + (newNode->wave.enemies[i].width/2);
-                    if (newNode->wave.enemies[i].x + newNode->wave.enemies[i].width > width-4) {//-4 por el espacio del marco
+                    if (newNode->wave.enemies[i].x + newNode->wave.enemies[i].width >= width-4) {//-4 por el espacio del marco
                         newNode->wave.enemies[i].x = 2 + newNode->wave.enemies[i].width;//al igual que aquí el +2
                     }
                 }
