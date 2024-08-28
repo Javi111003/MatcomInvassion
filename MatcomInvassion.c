@@ -7,7 +7,6 @@
 
 #define MAX_SHOTS 100
 #define MAX_ENEMIES 50
-#define MAX_WAVES 20
 #define ALIEN_WIDTH 6
 
 typedef struct {
@@ -28,7 +27,7 @@ typedef struct {
     int x, y;
     int width, height;
     char** sprite;
-    bool active;
+    int active;
 } Enemy;
 
 typedef struct {
@@ -83,7 +82,7 @@ int height = 30;
 int score = 0;
 int waveNumber = 1;
 pthread_mutex_t lock;
-pthread_t shootThread, inputThread , enemyThread ,waveTrhead;
+pthread_t shootThread, inputThread , enemyThread ,waveThread ,collisionThread;
 
 //Firmas de metodos
 void initializeWaves();
@@ -106,7 +105,8 @@ void cleanup() {
     pthread_cancel(shootThread);
     pthread_cancel(inputThread);
     pthread_cancel(enemyThread);
-    pthread_cancel(waveTrhead);
+    pthread_cancel(waveThread);
+    pthread_cancel(collisionThread);
     // Liberar la lista enlazada
     WaveNode *current = wavesList.head;
     while (current != NULL) {
@@ -189,8 +189,8 @@ void *generateWave(void* arg) {
             newNode->wave.numEnemies = enemiesInWave;
             for (int i = 0; i < enemiesInWave; i++) {
                 // Mejorar la generacion de la coordenada x de los enemigos para que no se generen en la misma posicion
-                newNode->wave.enemies[i].active = true;
                 newNode->wave.enemies[i].type = i % 3 + 1;
+                newNode->wave.enemies[i].active = newNode->wave.enemies[i].type;
                 switch (newNode->wave.enemies[i].type) {
                     case 1:
                         newNode->wave.enemies[i].width = alien1_width;
@@ -238,10 +238,13 @@ void *moveWave(void* arg) {
     while(1){
         pthread_mutex_lock(&lock);
         WaveNode *current = wavesList.head;
+        WaveNode *prev = NULL;
         while (current != NULL) {
             Wave *currentWave = &current->wave;
+            bool allInactive = true ;
             for (int j = 0; j < currentWave->numEnemies; j++) {
                 if (currentWave->enemies[j].active) {
+                    allInactive = false;
                     eraseAlien(&currentWave->enemies[j]);
                     currentWave->enemies[j].y++;
                     if (currentWave->enemies[j].y >= height) {
@@ -251,7 +254,22 @@ void *moveWave(void* arg) {
                     }
                 }
             }
-            current = current->next;
+            if (allInactive) {
+                if (prev == NULL) {
+                    wavesList.head = current->next;
+                } else {
+                    prev->next = current->next;
+                }
+                if (current == wavesList.tail) {
+                    wavesList.tail = prev;
+                }
+                WaveNode *temp = current;
+                current = current->next;
+                free(temp);
+            } else {
+                prev = current;
+                current = current->next;
+            }
         }
         refresh();
         pthread_mutex_unlock(&lock);
@@ -259,6 +277,43 @@ void *moveWave(void* arg) {
     }
     return NULL;
 }
+
+void *checkCollisions(void* arg) {
+    while (1) {
+        pthread_mutex_lock(&lock);
+        WaveNode *current = wavesList.head;
+        while (current != NULL) {
+            Wave *currentWave = &current->wave;
+            for (int j = 0; j < currentWave->numEnemies; j++) {
+                if (currentWave->enemies[j].active) {
+                    // Detectar colisiones con disparos
+                    for (int k = 0; k < MAX_SHOTS; k++) {
+                        if (shots[k].active && shots[k].startX >= currentWave->enemies[j].x && shots[k].startX < currentWave->enemies[j].x + currentWave->enemies[j].width && shots[k].startY >= currentWave->enemies[j].y && shots[k].startY < currentWave->enemies[j].y + currentWave->enemies[j].height) {
+                            shots[k].active = false;
+                            currentWave->enemies[j].active -= 1;
+                            if(!currentWave->enemies[j].active){
+                            eraseAlien(&currentWave->enemies[j]);
+                            score += currentWave->enemies[j].type*10; // Incrementar la puntuación
+                            }
+                        }
+                    }
+
+                    // Detectar colisiones con la nave
+                    if (currentWave->enemies[j].x < myShip.x + myShip.width && currentWave->enemies[j].x + currentWave->enemies[j].width > myShip.x && currentWave->enemies[j].y < myShip.y + myShip.height && currentWave->enemies[j].y + currentWave->enemies[j].height > myShip.y) {
+                        myShip.health -= currentWave->enemies[j].type*10; // Disminuir la vida de la nave
+                        currentWave->enemies[j].active = false;
+                        eraseAlien(&currentWave->enemies[j]);
+                    }
+                }
+            }
+            current = current->next;
+        }
+        pthread_mutex_unlock(&lock);
+        usleep(10000); // Ajustar el tiempo de espera según sea necesario
+    }
+    return NULL;
+}
+
 void *shoot(void *arg) {
     while (1) {
         pthread_mutex_lock(&lock);
@@ -284,7 +339,7 @@ void *shoot(void *arg) {
 
 void *moveAndShoot(void *arg) {
     int ch;
-    while ((ch = getch()) != 'q') {
+    while ((ch = getch()) != 'q' && myShip.health>0) {
         drawShip(&myShip, true);
         updateUI();
         switch (ch) {
@@ -309,7 +364,6 @@ void *moveAndShoot(void *arg) {
                         break;
                     }
                 }
-                score++;
                 break;
         }
         drawShip(&myShip, false);
@@ -344,7 +398,8 @@ void StartGame() {
     pthread_create(&shootThread, NULL, shoot, NULL);
     pthread_create(&inputThread, NULL, moveAndShoot, NULL);
     pthread_create(&enemyThread, NULL, moveWave, NULL);
-    pthread_create(&waveTrhead, NULL, generateWave, NULL);
+    pthread_create(&waveThread, NULL, generateWave, NULL);
+    pthread_create(&collisionThread, NULL, checkCollisions, NULL);
     pthread_join(inputThread, NULL);
 
     cleanup();
