@@ -74,7 +74,7 @@ const int alien3_width = 6, alien3_height = 4;
 
 //Variables globales
 WaveList wavesList;
-SpaceShip myShip = {100, 10, 10, 5, 3};
+SpaceShip myShip = {100, 10, 10, 9, 8}; // Actualizar el ancho y alto de la nave
 Shot shots[MAX_SHOTS];
 Enemy enemies[MAX_ENEMIES];
 int width = 120;
@@ -117,25 +117,43 @@ void cleanup() {
     initializeWaves();
 }
 void drawShip(const SpaceShip *ship, bool erase) {
-    char shipDesign[][6] = {
-        "  ^  ",
-        " /|\\ ",
-        "( |-)",
-        " \\|/ "
+    char shipDesign[][20] = {
+        "     _    ",
+        "    /_\\   ",
+        "   |( )|  ",
+        "   | _ |  ",
+        "   ||-||  ",
+        "  / |_| \\ ",
+        " (MAT_COM)",
+        "  (') (') "
     };
     char *blankDesign[] = {
-        "     ",
-        "     ",
-        "     "
+        "          ",
+        "          ",
+        "          ",
+        "          ",
+        "          ",
+        "          ",
+        "          ",
+        "          "
     };
     pthread_mutex_lock(&lock);
     for (int i = 0; i < ship->height; i++) {
         if (erase) {
             mvprintw(ship->y + i, ship->x, "%s", blankDesign[i]);
         } else {
-            attron(COLOR_PAIR(1));
+            switch(i){
+            case 7 :
+                   attron(COLOR_PAIR(3));
+                   break;
+            default:
+                   attron(COLOR_PAIR(1));
+                   break;
+            }
             mvprintw(ship->y + i, ship->x, "%s", shipDesign[i]);
             attroff(COLOR_PAIR(1));
+            attroff(COLOR_PAIR(2));
+            attroff(COLOR_PAIR(3));
         }
     }
     refresh();
@@ -159,6 +177,16 @@ void eraseAlien(Enemy* enemy) {
         }
     }
     refresh();
+}
+
+void animateAlienHit(Enemy* enemy) {
+    // Ejemplo de animación simple: parpadeo del alien
+    for (int i = 0; i < 3; i++) {
+        eraseAlien(enemy);
+        usleep(7000); // Esperar 0.7s
+        drawAlien(enemy);
+        usleep(7000); // Esperar 0.7s
+    }
 }
 
 void updateUI() {
@@ -291,6 +319,7 @@ void *checkCollisions(void* arg) {
                         if (shots[k].active && shots[k].startX >= currentWave->enemies[j].x && shots[k].startX < currentWave->enemies[j].x + currentWave->enemies[j].width && shots[k].startY >= currentWave->enemies[j].y && shots[k].startY < currentWave->enemies[j].y + currentWave->enemies[j].height) {
                             shots[k].active = false;
                             currentWave->enemies[j].active -= 1;
+                            animateAlienHit(&currentWave->enemies[j]);
                             if(!currentWave->enemies[j].active){
                             eraseAlien(&currentWave->enemies[j]);
                             score += currentWave->enemies[j].type*10; // Incrementar la puntuación
@@ -358,7 +387,7 @@ void *moveAndShoot(void *arg) {
             case ' ':
                 for (int i = 0; i < MAX_SHOTS; i++) {
                     if (!shots[i].active) {
-                        shots[i].startX = myShip.x + 2;
+                        shots[i].startX = myShip.x + 5;
                         shots[i].startY = myShip.y;
                         shots[i].active = true;
                         break;
@@ -369,6 +398,9 @@ void *moveAndShoot(void *arg) {
         drawShip(&myShip, false);
         usleep(20000); // Reduce the delay to improve movement speed
     }
+    system("clear");
+    printf("Game Over...You're dead dude (T_T) \n");
+    sleep(2);
     cleanup();
     return NULL;
 }
@@ -380,8 +412,9 @@ void StartGame() {
     keypad(stdscr, TRUE);
     nodelay(stdscr, TRUE);
     start_color(); // Inicializar colores
-    init_pair(1, COLOR_YELLOW, COLOR_BLACK); // Definir par de colores
-    init_pair(2, COLOR_RED, COLOR_BLACK);
+    init_pair(1, COLOR_WHITE, COLOR_BLACK); // Space Ship Body Color
+    init_pair(2, COLOR_RED, COLOR_BLACK);   // Alien Body Color
+    init_pair(3, COLOR_YELLOW, COLOR_BLACK); // Fire Color
     curs_set(0);
     raw();
     box(stdscr, 0, 0);
@@ -405,35 +438,66 @@ void StartGame() {
     cleanup();
 }
 
-int main() {
+void printObservatory(){
+    printf("     *   .         '       .   *    *   .         '       .   *   \n");
+    printf("        .         '       .   *         .         '       .   *     \n");
+    printf("        *   .         '       .   *    *   .         '       .   *\n");
+    printf("              `  .    '             . *   .    +    '    \n");
+    printf("   *   .         '       .   *    *   .         '       .   *   \n");
+    printf("    *   .         '       .   *    *   .         '       .   *   \n");
+    printf("  .    _     *       \\|/   .       .      -*-              +    \n");
+    printf("    .' \\`.     +    -*-     *   .         '       .   *         \n");
+    printf(" .  |__''_|  .       /|\\ +         .    +       .           |   \n");
+    printf("    |     | .                                        .     -*-  \n");
+    printf("    |     |           `  .    '             . *   .    +    '   \n");
+    printf("  _.'-----'-._     *                  .                        \n");
+    printf("/          apc\\__.__.--._______________--______________---_----_ \n");
+}
+void printInstructions() {
+    printf("Instructions\n");
+    printf("1. Use 'w', 'a', 's', 'd' to move the spaceship\n");
+    printf("2. Press 'space' to shoot\n");
+    printf("3. Press 'q' to quit the game\n");
+    printf("\n");
+}
+
+void printMainMenu() {
     printf(" __  __       _        _____           _       _   _                 \n");
     printf("|  \\/  |     (_)      |_   _|         (_)     | | (_)                \n");
     printf("| \\  / | __ _ _ _ __    | |  _ ____   ___  ___| |_ _  ___  _ __  ___ \n");
     printf("| |\\/| |/ _` | | '_ \\   | | | '_ \\ \\ / / |/ __| __| |/ _ \\| '_ \\/ __|\n");
     printf("| |  | | (_| | | | | | _| |_| | | \\ V /| | (__| |_| | (_) | | | \\__ \\\n");
     printf("|_|  |_|\\__,_|_|_| |_||_____|_| |_|\\_/ |_|\\___|\\__|_|\\___/|_| |_|___/\n");
+    printf("Main Menu\n");
+    printf("1. Start Game\n");
+    printf("2. Exit\n");
+    printObservatory();
     printf("\n");
+    printf("Enter your choice: ");
+}
 
+int main() {
     int choice;
     int validInput = 0;
     do {
-        printf("Main Menu\n");
-        printf("1. Start Game\n");
-        printf("2. Exit\n");
-        printf("Enter your choice: ");
+        system("clear");
+        printMainMenu();
         validInput = scanf("%d", &choice);
-
         if (validInput != 1 || (choice != 1 && choice != 2)) {
             printf("Invalid choice. Please try again.\n");
+            sleep(1);
             while (getchar() != '\n'); // Limpiar el buffer de entrada
             validInput = 0;
         } else {
             switch (choice) {
                 case 1:
+                    printInstructions();
+                    sleep(4);
                     StartGame();
                     break;
                 case 2:
                     printf("Exiting...\n");
+                    sleep(1);
                     cleanup();
                     break;
             }
