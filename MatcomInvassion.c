@@ -11,14 +11,11 @@
 
 typedef struct {
     int health;
-    int x;
-    int y;
-    int width;
-    int height;
+    int x,y;
+    int width , height;
 } SpaceShip;
 typedef struct {
-    int startX;
-    int startY;
+    int startX , startY;
     bool active;
 } Shot;
 
@@ -93,14 +90,14 @@ void cleanup() {
     initializeShots();
     //Reiniciar oleada
     waveNumber=1;
-    //Reiniciar puntuuacion
+    //Reiniciar puntuacion y vida del jugador
     score=0;
-    // Finalizar ncurses
-    endwin();
+    myShip.health=100;
     // Destruir mutex
     pthread_mutex_destroy(&lock);
     // Limpiar la consola
-    system("clear");
+    clear();
+    refresh();
     // Cancelar hilos si es necesario
     pthread_cancel(shootThread);
     pthread_cancel(inputThread);
@@ -114,7 +111,10 @@ void cleanup() {
         current = current->next;
         free(temp);
     }
-    initializeWaves();
+    wavesList.head = NULL;
+    wavesList.tail = NULL;
+    // Finalizar ncurses
+    endwin();
 }
 void drawShip(const SpaceShip *ship, bool erase) {
     char shipDesign[][20] = {
@@ -482,6 +482,7 @@ int main() {
     do {
         system("clear");
         printMainMenu();
+        usleep(50000);
         validInput = scanf("%d", &choice);
         if (validInput != 1 || (choice != 1 && choice != 2)) {
             printf("Invalid choice. Please try again.\n");
@@ -498,6 +499,7 @@ int main() {
                 case 2:
                     printf("Exiting...\n");
                     sleep(1);
+                    system("clear");
                     cleanup();
                     break;
             }
