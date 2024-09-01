@@ -212,8 +212,9 @@ void *generateWave(void* arg) {
         pthread_mutex_lock(&lock);
         WaveNode *newNode = (WaveNode *)malloc(sizeof(WaveNode));
         if (newNode != NULL) {
-            int enemiesInWave = (waveNumber * rand()) % 10;
-            int x = rand() % width;
+            int enemiesInWave = (waveNumber * rand()) % ((score/150)+1)+4;
+            int nextFit = 0 ;
+            int x = nextFit == 0? rand()%width : nextFit;
             newNode->wave.numEnemies = enemiesInWave;
             for (int i = 0; i < enemiesInWave; i++) {
                 // Mejorar la generacion de la coordenada x de los enemigos para que no se generen en la misma posicion
@@ -248,6 +249,7 @@ void *generateWave(void* arg) {
                 }
                 newNode->wave.enemies[i].y = 1;
             }
+            nextFit = enemiesInWave==0 ? rand() % width : newNode->wave.enemies[enemiesInWave-1].x + newNode->wave.enemies[enemiesInWave-1].width;
             newNode->next = NULL;
             if (wavesList.tail != NULL) {
                 wavesList.tail->next = newNode;
@@ -258,7 +260,7 @@ void *generateWave(void* arg) {
             waveNumber++;
         }
         pthread_mutex_unlock(&lock);
-        usleep(1500000); // Reduce the delay to make waves appear more frequently
+        usleep(2500000-((score*1000)+1)); // Reduce the delay to make waves appear more frequently
     }
     return NULL;
 }
@@ -301,7 +303,7 @@ void *moveWave(void* arg) {
         }
         refresh();
         pthread_mutex_unlock(&lock);
-        usleep(350000);
+        usleep(350000-((score*100)+1));
     }
     return NULL;
 }
