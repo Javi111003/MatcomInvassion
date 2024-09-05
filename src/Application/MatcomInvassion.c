@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include "../../includes/Scores.h"
+#include "../../includes/UI.h"
 
 #define MAX_SHOTS 100
 #define MAX_ENEMIES 50
@@ -23,7 +25,7 @@ typedef struct {
     int type;
     int x, y;
     int width, height;
-    char** sprite;
+    const char** sprite;
     int active;
 } Enemy;
 
@@ -32,7 +34,6 @@ typedef struct {
     int numEnemies;
 } Wave;
 
-// Define the new structures
 typedef struct WaveNode {
     Wave wave;
     struct WaveNode *next;
@@ -41,33 +42,6 @@ typedef struct {
     WaveNode *head;
     WaveNode *tail;
 } WaveList;
-
-// Tipo 1
-char* alien1_sprite[] = {
-    " /\\ ",
-    "/  \\",
-    "\\  /",
-    " \\/ "
-};
-const int alien1_width = 4, alien1_height = 4;
-
-// Tipo 2
-char* alien2_sprite[] = {
-    " /\\ ",
-    "/||\\",
-    "\\  /",
-    " \\/ "
-};
-const int alien2_width = 4, alien2_height = 4;
-
-// Tipo 3
-char* alien3_sprite[] = {
-    " /\\/\\ ",
-    "/|  |\\",
-    "\\|  |/",
-    " \\/\\/ "
-};
-const int alien3_width = 6, alien3_height = 4;
 
 //Variables globales
 WaveList wavesList;
@@ -117,26 +91,6 @@ void cleanup() {
     endwin();
 }
 void drawShip(const SpaceShip *ship, bool erase) {
-    char shipDesign[][20] = {
-        "     _    ",
-        "    /_\\   ",
-        "   |( )|  ",
-        "   | _ |  ",
-        "   ||-||  ",
-        "  / |_| \\ ",
-        " (MAT_COM)",
-        "  (') (') "
-    };
-    char *blankDesign[] = {
-        "          ",
-        "          ",
-        "          ",
-        "          ",
-        "          ",
-        "          ",
-        "          ",
-        "          "
-    };
     pthread_mutex_lock(&lock);
     for (int i = 0; i < ship->height; i++) {
         if (erase) {
@@ -180,7 +134,6 @@ void eraseAlien(Enemy* enemy) {
 }
 
 void animateAlienHit(Enemy* enemy) {
-    // Ejemplo de animación simple: parpadeo del alien
     for (int i = 0; i < 3; i++) {
         eraseAlien(enemy);
         usleep(7000); // Esperar 0.7s
@@ -440,45 +393,8 @@ void StartGame() {
     cleanup();
 }
 
-void printObservatory(){
-    printf("     *   .         '       .   *    *   .         '       .   *   \n");
-    printf("        .         '       .   *         .         '       .   *     \n");
-    printf("        *   .         '       .   *    *   .         '       .   *\n");
-    printf("              `  .    '             . *   .    +    '    \n");
-    printf("   *   .         '       .   *    *   .         '       .   *   \n");
-    printf("    *   .         '       .   *    *   .         '       .   *   \n");
-    printf("  .    _     *       \\|/   .       .      -*-              +    \n");
-    printf("    .' \\`.     +    -*-     *   .         '       .   *         \n");
-    printf(" .  |__''_|  .       /|\\ +         .    +       .           |   \n");
-    printf("    |     | .                                        .     -*-  \n");
-    printf("    |     |           `  .    '             . *   .    +    '   \n");
-    printf("  _.'-----'-._     *                  .                        \n");
-    printf("/          apc\\__.__.--._______________--______________---_----_ \n");
-}
-void printInstructions() {
-    printf("Instructions\n");
-    printf("1. Use 'w', 'a', 's', 'd' to move the spaceship\n");
-    printf("2. Press 'space' to shoot\n");
-    printf("3. Press 'q' to quit the game\n");
-    printf("\n");
-}
-
-void printMainMenu() {
-    printf(" __  __       _        _____           _       _   _                 \n");
-    printf("|  \\/  |     (_)      |_   _|         (_)     | | (_)                \n");
-    printf("| \\  / | __ _ _ _ __    | |  _ ____   ___  ___| |_ _  ___  _ __  ___ \n");
-    printf("| |\\/| |/ _` | | '_ \\   | | | '_ \\ \\ / / |/ __| __| |/ _ \\| '_ \\/ __|\n");
-    printf("| |  | | (_| | | | | | _| |_| | | \\ V /| | (__| |_| | (_) | | | \\__ \\\n");
-    printf("|_|  |_|\\__,_|_|_| |_||_____|_| |_|\\_/ |_|\\___|\\__|_|\\___/|_| |_|___/\n");
-    printf("Main Menu\n");
-    printf("1. Start Game\n");
-    printf("2. Exit\n");
-    printObservatory();
-    printf("\n");
-    printf("Enter your choice: ");
-}
-
 int main() {
+    Player player;
     int choice;
     int validInput = 0;
     do {
