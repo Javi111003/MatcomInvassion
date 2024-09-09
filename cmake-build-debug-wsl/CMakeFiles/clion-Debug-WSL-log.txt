@@ -1,0 +1,4 @@
+C:\WINDOWS\system32\wsl.exe --distribution Ubuntu --exec "/mnt/c/Program Files/JetBrains/CLion/bin/ttyfix" /bin/bash -c "export CLION_IDE=TRUE && export CMAKE_COLOR_DIAGNOSTICS=ON && export JETBRAINS_IDE=TRUE && cd /home/javi/projects/MatcomInvassionNew/cmake-build-debug-wsl && /usr/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=-I/usr/include/ncurses -G 'CodeBlocks - Unix Makefiles' -S /home/javi/projects/MatcomInvassionNew -B /home/javi/projects/MatcomInvassionNew/cmake-build-debug-wsl"
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/javi/projects/MatcomInvassionNew/cmake-build-debug-wsl

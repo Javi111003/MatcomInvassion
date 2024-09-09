@@ -1,6 +1,5 @@
 # Ignorar directorios de construcción
 cmake-build-debug/
-cmake-build-debug-wsl/
 cmake-build-release/
 
 # Ignorar archivos de configuración de CLion
