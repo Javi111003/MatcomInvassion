@@ -340,6 +340,7 @@ void *moveAndShoot(void *arg) {
                 if (myShip.x < width - myShip.width - 1) myShip.x++;
                 break;
             case ' ':
+                system("ffplay -nodisp -autoexit -volume 30 /home/javi/projects/MatcomInvassionNew/assets/sounds/shoot.wav > /dev/null 2>&1 &");
                 for (int i = 0; i < MAX_SHOTS; i++) {
                     if (!shots[i].active) {
                         shots[i].startX = myShip.x + 5;
@@ -354,8 +355,10 @@ void *moveAndShoot(void *arg) {
         usleep(20000); // Reduce the delay to improve movement speed
     }
     system("clear");
+    system("ffplay -nodisp -autoexit /home/javi/projects/MatcomInvassionNew/assets/sounds/game_over.wav > /dev/null 2>&1 &");
     printf("Game Over...You're dead dude (T_T) \n");
-    sleep(2);
+    sleep(4);
+    system("pkill ffplay");
     cleanup();
     return NULL;
 }
@@ -398,6 +401,7 @@ int main() {
     int choice;
     int validInput = 0;
     do {
+        system("ffplay -nodisp -autoexit -volume 50 /home/javi/projects/MatcomInvassionNew/assets/sounds/main_menu.wav > /dev/null 2>&1 &");
         system("clear");
         printMainMenu();
         usleep(50000);
@@ -408,10 +412,13 @@ int main() {
             while (getchar() != '\n'); // Limpiar el buffer de entrada
             validInput = 0;
         } else {
+            system("pkill ffplay");
             switch (choice) {
                 case 1:
+                    system("ffplay -nodisp -autoexit -volume 50 /home/javi/projects/MatcomInvassionNew/assets/sounds/instruction.wav > /dev/null 2>&1 &");
                     printInstructions();
-                    sleep(4);
+                    sleep(5);
+                    system("pkill ffplay");
                     StartGame();
                     break;
                 case 2:

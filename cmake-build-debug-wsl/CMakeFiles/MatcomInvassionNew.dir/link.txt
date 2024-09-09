@@ -1,0 +1,1 @@
+/usr/bin/cc -g CMakeFiles/MatcomInvassionNew.dir/src/Application/MatcomInvassion.c.o CMakeFiles/MatcomInvassionNew.dir/src/Application/UI.c.o -o MatcomInvassionNew  -L/usr/lib/x86_64-linux-gnu  -lSDL2 -lcurses /usr/lib/x86_64-linux-gnu/libform.so 
